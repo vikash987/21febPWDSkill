@@ -2,7 +2,7 @@ name: Python CI with Coverage
 
 permissions:
   contents: write   # <-- REQUIRED so GitHub Actions can push commits
-
+  
 on:
   push:
     branches:
@@ -11,7 +11,6 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,7 +20,6 @@ jobs:
           - "3.10"
           - "3.11"
           - "3.12"
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,3 +43,24 @@ jobs:
       - name: Run tests with coverage
         run: |
           pytest --cov=src \
+                 --cov-report=term-missing \
+                 --cov-report=xml \
+                 --cov-report=html \
+                 --cov-fail-under=80 \
+                 tests/
+
+      # ------------------------------
+      # SAVE HTML REPORT TO REPO
+      # ------------------------------
+      - name: Copy HTML coverage report to repo folder
+        run: |
+          mkdir -p coverage-reports/py${{ matrix.python-version }}
+          cp -r htmlcov/. coverage-reports/py${{ matrix.python-version }}/
+
+      - name: Commit coverage HTML report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add coverage-reports/
+          git diff --cached --quiet || git commit -m "ci: update coverage report for py${{ matrix.python-version }} [skip ci]"
+          git push
