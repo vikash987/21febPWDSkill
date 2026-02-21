@@ -1,4 +1,5 @@
- name: Python CI with Coverage
+name: Python CI with Coverage
+
 on:
   push:
     branches:
@@ -7,15 +8,18 @@ on:
   pull_request:
     branches:
       - main
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         python-version:
           - "3.10"
           - "3.11"
           - "3.12"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,20 +46,66 @@ jobs:
                  --cov-report=term-missing \
                  --cov-report=xml \
                  --cov-report=html \
+                 --cov-fail-under=80 \
                  tests/
 
       # ------------------------------
-      # SAVE HTML REPORT TO REPO
+      # TXT COVERAGE FILE
       # ------------------------------
-      - name: Copy HTML coverage report to repo folder
-        run: |
-          mkdir -p coverage-reports/py${{ matrix.python-version }}
-          cp -r htmlcov/. coverage-reports/py${{ matrix.python-version }}/
+      - name: Generate TXT coverage report
+        run: coverage report > coverage.txt
 
-      - name: Commit coverage HTML report
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add coverage-reports/
-          git diff --cached --quiet || git commit -m "ci: update coverage report for py${{ matrix.python-version }} [skip ci]"
-          git push
+      - name: Upload TXT coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-py${{ matrix.python-version }}.txt
+          path: coverage.txt
+          retention-days: 7
+
+      # ------------------------------
+      # HTML COVERAGE FILE (full htmlcov/ needed for Pages)
+      # ------------------------------
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-py${{ matrix.python-version }}.html
+          path: htmlcov/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────
+  # Deploy full HTML coverage report to GitHub Pages
+  # Only runs on push to main after ALL matrix jobs pass
+  #
+  # ⚠️  PREREQ: Settings → Pages → Source → "GitHub Actions"
+  # ──────────────────────────────────────────────────────────────
+  deploy-coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      # Step 1: Download the py3.12 HTML report from the test job
+      - name: Download HTML coverage report (py3.12)
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report-py3.12.html
+          path: htmlcov/
+
+      # Step 2: Package htmlcov/ as a GitHub Pages artifact
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: htmlcov/
+
+      # Step 3: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
