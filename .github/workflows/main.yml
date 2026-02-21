@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: write   # ✅ REQUIRED to push back to repo
+  contents: write
 
 jobs:
   test:
@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: true   # ✅ required for push
+          persist-credentials: true
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -67,17 +67,25 @@ jobs:
       - name: Upload HTML coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report-py${{ matrix.python-version }}.zip
+          name: coverage-report-py${{ matrix.python-version }}
           path: htmlcov/
           retention-days: 7
 
-      # ✅ NEW STEP — Commit htmlcov to repository (only for main + python 3.12)
-      - name: Commit HTML coverage to repository
+      # ---------------------------------------
+      # Create ZIP + Commit (ONLY main + py3.12)
+      # ---------------------------------------
+
+      - name: Create coverage zip
+        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
+        run: |
+          zip -r coverage-report-py${{ matrix.python-version }}.zip htmlcov
+
+      - name: Commit coverage zip to repository
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-          git add htmlcov/
-          git commit -m "Update coverage report [skip ci]" || echo "No changes to commit"
+          git add coverage-report-py${{ matrix.python-version }}.zip
+          git diff --cached --quiet || git commit -m "ci: update coverage zip [skip ci]"
           git push
