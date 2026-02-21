@@ -71,34 +71,16 @@ jobs:
           path: htmlcov/
           retention-days: 7
 
+             # ---------------------------------------
+      # Copy coverage folder (ONLY main + py3.12)
       # ---------------------------------------
-      # Create ZIP + Commit (ONLY main + py3.12)
-      # ---------------------------------------
 
-      - name: Create coverage zip
-        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
-        run: |
-          zip -r coverage-report-py${{ matrix.python-version }}.zip htmlcov
-
-      - name: Commit coverage zip to repository
-        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
-          git add coverage-report-py${{ matrix.python-version }}.zip
-          git diff --cached --quiet || git commit -m "ci: update coverage zip [skip ci]"
-          git push
-
-            # ---------------------------------------
-      # Copy HTML folder to repo (ONLY main + py3.12)
-      # ---------------------------------------
       - name: Copy coverage folder
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
         run: |
-          rm -rf coverage-report-py3.12
-          mkdir -p coverage-report-py3.12
-          cp -r htmlcov/. coverage-report-py3.12/
+          rm -rf coverage-report
+          mkdir -p coverage-report
+          cp -r htmlcov/. coverage-report/
 
       - name: Commit coverage folder to repository
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
@@ -106,6 +88,6 @@ jobs:
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
 
-          git add coverage-report-py3.12/
+          git add coverage-report/
           git diff --cached --quiet || git commit -m "ci: update coverage folder [skip ci]"
           git push
